@@ -146,7 +146,7 @@ try {
         'embeds' => [
             [
                 'title' => $title,
-                'color' => 559629,
+                'color' => 2822763,
                 'fields' => [
                     [
                         'name' => 'Completion :',
