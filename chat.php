@@ -34,7 +34,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// Chargement de la config au début
 $config = require __DIR__ . '/config.php';
 
 header('Content-Type: text/event-stream; charset=utf-8');
@@ -56,15 +55,9 @@ ini_set('implicit_flush', '1');
 
 ob_implicit_flush(true);
 
-echo ": " . str_repeat(' ', 4096) . "\n\n";
-if (function_exists('ob_flush')) { @ob_flush(); }
-flush();
-
-// --- MODE MAINTENANCE ---
 if (!empty($config['maintenance_mode'])) {
     $placeholderText = "Le service est actuellement en maintenance pour amélioration. Veuillez réessayer plus tard.";
     
-    // Découpage du texte en mots pour simuler la génération de l'IA
     $words = explode(' ', $placeholderText);
     
     foreach ($words as $index => $word) {
@@ -85,10 +78,9 @@ if (!empty($config['maintenance_mode'])) {
         if (function_exists('ob_flush')) { @ob_flush(); }
         flush();
         
-        usleep(80000); // Pause de 80ms entre chaque mot
+        usleep(80000);
     }
     
-    // Signal de fin de stream SSE
     echo "data: [DONE]\n\n";
     if (function_exists('ob_flush')) { @ob_flush(); }
     flush();
