@@ -142,7 +142,7 @@ try {
     $payload = [
         'content' => null,
         'username' => $type,
-        'avatar_url' => 'https://cdn-avatars.huggingface.co/v1/production/uploads/68bd85e15271b9ac99cb2963/cEyVuEJrSO62SPVv8Zytb.png',
+        'avatar_url' => 'https://marvideo.fr/lyseai-api/logo-sparkslyse.png',
         'embeds' => [
             [
                 'title' => $title,
