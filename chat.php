@@ -131,7 +131,7 @@ if (!$apiKey) {
 }
 
 $payload = json_encode([
-    'model' => '###openrouter.openrouter/free###',
+    'model' => 'lyse.sparkslyse-336m',
     'messages' => $messages,
     'stream' => true,
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
