@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+set_time_limit(0);
+ignore_user_abort(false);
 
 $allowedOrigins = [
     'http://localhost:4321',
@@ -57,12 +59,12 @@ ob_implicit_flush(true);
 
 if (!empty($config['maintenance_mode'])) {
     $placeholderText = "Le service est actuellement en maintenance pour amélioration. Veuillez réessayer plus tard.";
-    
+
     $words = explode(' ', $placeholderText);
-    
+
     foreach ($words as $index => $word) {
         $chunk = ($index === 0) ? $word : ' ' . $word;
-        
+
         $payload = [
             'choices' => [
                 [
@@ -73,16 +75,20 @@ if (!empty($config['maintenance_mode'])) {
                 ]
             ]
         ];
-        
+
         echo "data: " . json_encode($payload, JSON_UNESCAPED_UNICODE) . "\n\n";
-        if (function_exists('ob_flush')) { @ob_flush(); }
+        if (function_exists('ob_flush')) {
+            @ob_flush();
+        }
         flush();
-        
+
         usleep(80000);
     }
-    
+
     echo "data: [DONE]\n\n";
-    if (function_exists('ob_flush')) { @ob_flush(); }
+    if (function_exists('ob_flush')) {
+        @ob_flush();
+    }
     flush();
     exit;
 }
@@ -138,55 +144,67 @@ $payload = json_encode([
 
 $ch = curl_init($openWebUIUrl);
 
+$httpCode = 0;
+$isSSE = false;
+$buffer = '';
+
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
-
     CURLOPT_HTTPHEADER => [
         'Content-Type: application/json',
         'Authorization: Bearer ' . $apiKey,
         'Accept: text/event-stream',
-        'Cache-Control: no-cache',
     ],
-
     CURLOPT_POSTFIELDS => $payload,
     CURLOPT_RETURNTRANSFER => false,
-    CURLOPT_TCP_NODELAY => 1,
-
-    CURLOPT_WRITEFUNCTION => function (
-        $curl,
-        string $data
-    ): int {
-
-        if ($data === '') {
-            return 0;
-        }
-        echo $data;
-
-        if (function_exists('ob_flush')) {
-            @ob_flush();
-        }
-
-        flush();
-
-        return strlen($data);
-    },
-
+    CURLOPT_ENCODING => '',
     CURLOPT_CONNECTTIMEOUT => 10,
     CURLOPT_TIMEOUT => 0,
     CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+
+    CURLOPT_HEADERFUNCTION => function ($curl, string $header) use (&$httpCode, &$isSSE) {
+        if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m)) {
+            $httpCode = (int)$m[1];
+        }
+        if (stripos($header, 'content-type:') === 0 && stripos($header, 'text/event-stream') !== false) {
+            $isSSE = true;
+        }
+        return strlen($header);
+    },
+
+    CURLOPT_WRITEFUNCTION => function ($curl, string $data) use (&$isSSE, &$buffer, &$httpCode): int {
+        if ($httpCode >= 400 || !$isSSE) {
+            $buffer .= $data;
+            return strlen($data);
+        }
+        echo $data;
+        @ob_flush();
+        flush();
+        return strlen($data);
+    },
 ]);
 
 $result = curl_exec($ch);
 
 if ($result === false) {
+    echo "data: " . json_encode(['error' => curl_error($ch)]) . "\n\n";
+} elseif ($httpCode >= 400) {
+    echo "data: " . json_encode(['error' => "Upstream error ($httpCode)", 'details' => $buffer], JSON_UNESCAPED_UNICODE) . "\n\n";
+} elseif (!$isSSE) {
+    $json = json_decode($buffer, true);
+    $text = $json['choices'][0]['message']['content'] ?? '';
 
-    echo "data: " . json_encode([
-        'error' => curl_error($ch)
-    ]) . "\n\n";
-
-    echo "data: [DONE]\n\n";
-
-    flush();
+    foreach (preg_split('/(?<=\s)/u', $text, -1, PREG_SPLIT_NO_EMPTY) as $chunk) {
+        echo "data: " . json_encode([
+            'choices' => [['delta' => ['content' => $chunk], 'finish_reason' => null]]
+        ], JSON_UNESCAPED_UNICODE) . "\n\n";
+        @ob_flush();
+        flush();
+        usleep(30000);
+    }
 }
 
+echo "data: [DONE]\n\n";
+@ob_flush();
+flush();
 curl_close($ch);
