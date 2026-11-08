@@ -137,7 +137,7 @@ if (!$apiKey) {
 }
 
 $payload = json_encode([
-    'model' => 'lyse.sparkslyse-336m',
+    'model' => 'lyse.sparkslyse-320m',
     'messages' => $messages,
     'stream' => true,
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
